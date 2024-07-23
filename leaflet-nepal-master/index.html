@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Nepal GeoJSON - Leaflet</title>
+
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css"
+        integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ=="
+        crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js"
+        integrity="sha512-gZwIG9x3wUXg2hdXF6+rVkLF/0Vi9U8D2Ntg4Ga5I5BZpVkVxlJWbSQtXPSiUTtC0TjtGOmxa1AJPuV0CPthew=="
+        crossorigin=""></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+        }
+
+        #map {
+            width: 100%;
+            height: 100vh;
+        }
+
+        .leaflet-container {
+            background: #bbb;
+        }
+
+        .leaflet-masking-layer {
+            background: rgba(0, 0, 0, 0.6);
+            pointer-events: none;
+        }
+
+        .custom-div-icon {
+            color: black;
+            font-weight: bold;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+    <div id='map'></div>
+
+    <script type="text/javascript" src="nepal-province.js"></script>
+    <script type="text/javascript" src="province1-district.js"></script>
+    <script type="text/javascript" src="province2-district.js"></script>
+    <script type="text/javascript" src="province3-district.js"></script>
+    <script type="text/javascript" src="province4-district.js"></script>
+    <script type="text/javascript" src="province5-district.js"></script>
+    <script type="text/javascript" src="province6-district.js"></script>
+    <script type="text/javascript" src="province7-district.js"></script>
+
+    <script type="text/javascript">
+        var provinceMap, provinceGeoJson, stateGeoJson;
+        var provinceMarkers = {};  // To store markers for each province
+
+        // Initialize map
+        provinceMap = L.map('map', {
+            scrollWheelZoom: true,
+            touchZoom: false,
+            doubleClickZoom: false,
+            zoomControl: true,
+            dragging: true
+        }).setView([28.3949, 84.1240], 8);
+
+        // Add a tile layer (using OpenStreetMap for this example)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+        }).addTo(provinceMap);
+
+        // GeoJSON data
+        provinceGeoJson = L.geoJson(provinceData, {
+            style: style,
+            onEachFeature: onEachFeature
+        }).addTo(provinceMap);
+
+        var bound = provinceGeoJson.getBounds();
+        provinceMap.fitBounds(bound);
+
+        // Masking layer to show only Nepal
+        L.rectangle([[85, 180], [-85, -180]], {
+            color: "#000",
+            weight: 2,
+            fillColor: "white",
+            fillOpacity: 1,
+            interactive: false,
+            className: 'leaflet-masking-layer'
+        }).addTo(provinceMap).bringToBack();
+
+        function style(feature) {
+            return {
+                weight: 2,
+                opacity: 1,
+                color: '#FFF',
+                dashArray: '1',
+                fillOpacity: 0.7,
+                fillColor: getProvinceColor(feature.properties.Province),
+            };
+        }
+
+        function highlightFeature(e) {
+            var layer = e.target;
+            layer.setStyle({
+                weight: 2,
+                color: '#FFF',
+                dashArray: '',
+                fillOpacity: 0.7,
+                fillColor: getProvinceColor(layer.feature.properties.Province)
+            });
+
+            if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
+                layer.bringToFront();
+            }
+        }
+
+        function getProvinceColor(province) {
+            switch (province) {
+                case 1:
+                case 2:
+                case 3:
+                case 4:
+                case 5:
+                case 6:
+                case 7:
+                    return '#9A1D20';
+                default:
+                    return '#9A1D20';
+            }
+        }
+
+        function resetHighlight(e) {
+            provinceGeoJson.resetStyle(e.target);
+        }
+
+        function zoomToProvince(e) {
+            var json,
+                province_number = e.target.feature.properties.Province;
+
+            provinceMap.fitBounds(e.target.getBounds());
+
+            if (stateGeoJson != undefined) { stateGeoJson.clearLayers(); }
+
+            switch (province_number) {
+                case 1:
+                    json = province_1;
+                    break;
+                case 2:
+                    json = province_2;
+                    break;
+                case 3:
+                    json = province_3;
+                    break;
+                case 4:
+                    json = province_4;
+                    break;
+                case 5:
+                    json = province_5;
+                    break;
+                case 6:
+                    json = province_6;
+                    break;
+                case 7:
+                    json = province_7;
+                    break;
+                default:
+                    json = '';
+                    break;
+            }
+
+            stateGeoJson = L.geoJson(json, {
+                style: style,
+                onEachFeature: onEachFeature
+            }).addTo(provinceMap);
+
+            stateGeoJson.eachLayer(function (layer) {
+                layer.bindTooltip(layer.feature.properties.DISTRICT, {
+                    permanent: true,
+                    direction: "center",
+                    className: 'custom-tooltip'
+                }).openTooltip();
+            });
+
+            // Hide the province markers
+            if (provinceMarkers[province_number]) {
+                provinceMarkers[province_number].forEach(marker => marker.remove());
+            }
+        }
+
+        function onEachFeature(feature, layer) {
+            layer.on({
+                mouseover: highlightFeature,
+                mouseout: resetHighlight,
+                click: zoomToProvince
+            });
+        }
+
+        // Add CSS for custom tooltip directly
+        var style = document.createElement('style');
+        style.innerHTML = `
+            .custom-tooltip {
+                background: transparent !important;
+                color: #000;
+                border: none;
+                padding: 0;
+                font-size: 12px;
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Add text labels for each province
+        const provinces = [
+            { name: "Koshi", coords: [26.9890, 87.2931], number: 1 },
+            { name: "Madhesh", coords: [26.7289, 86.0980], number: 2 },
+            { name: "Bagmati Province", coords: [27.4272, 85.6240], number: 3 },
+            { name: "Gandaki Province", coords: [28.5096, 83.9856], number: 4 },
+            { name: "Lumbini Province", coords: [27.9083, 82.7653], number: 5 },
+            { name: "Karnali Province", coords: [29.075375179558346, 82.39701185836428], number: 6 },
+            { name: "Sudurpashchim Province", coords: [29.6743, 80.9645], number: 7 }
+        ];
+
+        provinces.forEach(province => {
+            const icon = L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div style="background-color: transparent; font-size: 12px;">${province.name}</div>`,
+                iconSize: [100, 40],
+                iconAnchor: [50, 20]
+            });
+
+            const marker = L.marker(province.coords, { icon: icon }).addTo(provinceMap);
+
+            // Store the markers by province number
+            if (!provinceMarkers[province.number]) {
+                provinceMarkers[province.number] = [];
+            }
+            provinceMarkers[province.number].push(marker);
+        });
+
+        // Reset markers visibility when zooming out
+        provinceMap.on('zoomend', function() {
+            if (provinceMap.getZoom() <= 8) {
+                // Show all markers when zoom level is less than or equal to 8
+                Object.values(provinceMarkers).forEach(markers => {
+                    markers.forEach(marker => marker.addTo(provinceMap));
+                });
+            }
+        });
+
+    </script>
+</body>
+
+</html>
